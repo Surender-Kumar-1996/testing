@@ -65,7 +65,10 @@ if [ "$release_candidate" == "rc" ]; then
         echo "Version is incorrect in csharp-sdk"
     fi
     #  Update the package version in the [sdks/unity/package.json][unity] package file's Version field to {version} if a full release, {version}-rc if release candidate
-     echo "See u again for editing json file"
+    install_package jq
+    temp=$(jq --arg version "$SERVICE" '.version |= $version' ../../sdks/unity/package.json)
+    temp=$(jq '.' <<< $temp)
+    echo $temp > ../../sdks/unity/package.json
 
     # Run make gen-install
     make gen-instal
@@ -75,28 +78,31 @@ if [ "$release_candidate" == "rc" ]; then
     # If full release, then increment the base_version in [build/Makefile][build-makefile]
     sed -i -e "s/\(base_version = \).*/\1$Version/" ../Makefile
 
+    #If full release, then increment the base_version in [build/Makefile][build-makefile]
+    sed -i -e "s/\(base_version = \).*/\1$newVersion/" ../Makefile
+
+    # If full release move [helm tag value][values] is set to {version}+1-dev
+    sed -i  "/^\([[:space:]]*tag: \).*/s//\1$Version/" ../../install/helm/agones/test.yaml
     
+    # If full release move the [helm Chart version values][chart] is to {version}+1-dev
+    sed -i  "/^\([[:space:]]*version: \).*/s//\1$lineno/" ../../install/helm/agones/chart.yaml
+
+    #If full release, change to the sdks/nodejs directory and run the command npm version {version}+1-dev to update the package version
+    path=$(pwd)
+    cd ../../install/helm/agones; npm version $Version; cd $path;
+
+    #If full release, change to the sdks/nodejs directory and run the command npm version {version}+1-dev to update the package version
+    sed -i "/<version>/,/<\/version>/s/$ver3/$Version/" ../../sdks/csharp/sdk/AgonesSDK.nuspec
+
+    #  If full release move the [sdks/csharp/sdk/AgonesSDK.nuspec and sdks/csharp/sdk/csharp-sdk.csproj][csharp] to {version}+1-dev
+    sed -i "/<version>/,/<\/version>/s/$ver3/$Version/" ../../sdks/csharp/sdk/AgonesSDK.nuspec
+
+    # If full release move the [sdks/csharp/sdk/AgonesSDK.nuspec and sdks/csharp/sdk/csharp-sdk.csproj][csharp] to {version}+1-dev
+    sed -i "/<Version>/,/<\/Version>/s/$ver4/$Version/I" ../../sdks/csharp/sdk/csharp-sdk.csproj
+
+    # If full release update the [sdks/unity/package.json][unity] package file's Version field to {version}+1-dev
+    temp=$(jq --arg version "$Version" '.version |= $version' ../../sdks/unity/package.json)
+    temp=$(jq '.' <<< $temp)
+    echo $temp > ../../sdks/unity/package.json
 fi
-
-
-#brew install jq
-
-install_package jq
-
-
-Version="$SERVICE-devi"
-echo $Version
-
-temp=$(jq '.version |= "[$Version]"' ../../sdks/unity/package.json)
-temp=$(jq '.' <<< $temp)
-echo $temp > ../../sdks/unity/package.json
-
-#jq '.version' ../../sdks/unity/package.json
-
-#sed -i -e "s/\(version:  = \).*/\1$SERVICE/" ../../sdks/unity/package.json
-echo done
-
-jq '.version' ../../sdks/unity/package.json
-
-#sed -i -e "s/\(base_version = \).*/\1$SERVICE/" ../Makefile
 

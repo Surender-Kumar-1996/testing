@@ -16,7 +16,7 @@
 
 apiVersion: v1
 appVersion: "1.27.0-dev"
-version: 1.27.0-dev
+version: 208
 name: agones
 description: a library for hosting, running and scaling dedicated game servers on Kubernetes.
 keywords:
