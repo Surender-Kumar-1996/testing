@@ -1,4 +1,5 @@
-SERVICE="1.27.0"
+echo "Enter release version [should be {version} if a full release, {version}-rc if release candidate] : "
+read SERVICE
 
 
 increment_version() {
@@ -30,7 +31,7 @@ install_package(){
 
 release_candidate=${SERVICE: -2}
 #echo $release_candidate
-if [ "$release_candidate" == "rc" ]; then
+if [ "$release_candidate" != "rc" ]; then
     SERVICE+="-dev"
     echo $SERVICE
     ver1=$(grep -h "tag" ../../install/helm/agones/test.yaml | awk '{ print $2}')
@@ -102,6 +103,48 @@ if [ "$release_candidate" == "rc" ]; then
 
     # If full release update the [sdks/unity/package.json][unity] package file's Version field to {version}+1-dev
     temp=$(jq --arg version "$Version" '.version |= $version' ../../sdks/unity/package.json)
+    temp=$(jq '.' <<< $temp)
+    echo $temp > ../../sdks/unity/package.json
+
+else
+    modified=${SERVICE::4}
+    SERVICE="$modified-dev-rc"
+    ver1=$(grep -h "tag" ../../install/helm/agones/test.yaml | awk '{ print $2}')
+    ver2=$(grep -h "version" ../../install/helm/agones/chart.yaml | awk '{ print $2}')
+
+    #  Ensure the [helm tag value][values] is correct (should be {version} if a full release, {version}-rc if release candidate)
+    #Ensure the [helm Chart version values][chart] are correct (should be {version} if a full release, {version}-rc if release candidate)
+    if [[ "$SERVICE" != "$ver1" ]] && [[ "$SERVICE" != "$ver2" ]]; then
+        echo "tag and version is incorrect"
+        echo $ver1
+        exit 0
+    fi
+    if [ "$SERVICE" != "$ver1" ]; then
+        echo "tag is incorrect"
+        exit 0
+    fi
+    if [ "$SERVICE" != "$ver2" ]; then
+        echo "version is incorrect"
+        exit 0
+    fi
+
+    echo "ChOOT CHODO"
+
+    # Update the package version in [sdks/nodejs/package.json][package.json] and [sdks/nodejs/package-lock.json][package-lock.json] by running npm version {version} if a full release or npm version {version}-rc if release candidate
+    npm version $SERVICE
+
+    #Ensure the [sdks/csharp/sdk/AgonesSDK.nuspec and sdks/csharp/sdk/csharp-sdk.csproj][csharp] versions are correct (should be {version} if a full release, {version}-rc if release candidate)
+    ver3=$(sed -n -e 's/.*<version>\(.*\)<\/version>.*/\1/pI' ../../sdks/csharp/sdk/AgonesSDK.nuspec)
+    if [ "$SERVICE" != "$ver3" ]; then
+        echo "Version is incorrect in AgonesSDK"
+    fi
+    ver4=$(sed -n -e 's/.*<version>\(.*\)<\/version>.*/\1/pI' ../../sdks/csharp/sdk/csharp-sdk.csproj)
+    if [ "$SERVICE" != "$ver4" ]; then
+        echo "Version is incorrect in csharp-sdk"
+    fi
+    #  Update the package version in the [sdks/unity/package.json][unity] package file's Version field to {version} if a full release, {version}-rc if release candidate
+    install_package jq
+    temp=$(jq --arg version "$SERVICE" '.version |= $version' ../../sdks/unity/package.json)
     temp=$(jq '.' <<< $temp)
     echo $temp > ../../sdks/unity/package.json
 fi
